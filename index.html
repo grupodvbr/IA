@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agente DV</title>
+  <style>
+    :root{--bg:#0b1220;--card:#111827;--txt:#e5e7eb;--mut:#94a3b8;--acc:#0ea5e9}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Arial,sans-serif}
+    header{padding:24px;text-align:center;font-size:28px;font-weight:700}
+    main{max-width:980px;margin:0 auto;padding:16px}
+    form{display:flex;gap:8px;justify-content:center;margin-bottom:18px}
+    input{flex:1;max-width:560px;padding:12px 14px;border-radius:12px;border:1px solid #1f2937;background:#0b1220;color:var(--txt)}
+    button{padding:12px 16px;border:0;border-radius:12px;background:var(--acc);color:#001422;font-weight:700;cursor:pointer}
+    pre{background:var(--card);border:1px solid #1f2937;border-radius:14px;padding:14px;white-space:pre-wrap}
+    .err{color:#fca5a5}
+  </style>
+</head>
+<body>
+  <header>Agente DV</header>
+  <main>
+    <form id="f">
+      <input id="q" placeholder="Escreva sua mensagem..." autocomplete="off" />
+      <button>Enviar</button>
+    </form>
+    <pre id="out">Pronto. Envie uma mensagem para testar.</pre>
+  </main>
+
+  <script>
+    // 👉 TROQUE A URL PELO ENDEREÇO DA SUA API NA VERCEL:
+    const API_URL = 'https://novo-agente.vercel.app/api/agent'; // <- ajuste aqui!
+
+    const f = document.getElementById('f');
+    const q = document.getElementById('q');
+    const out = document.getElementById('out');
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = q.value.trim();
+      if (!text) return;
+      out.textContent = 'Enviando…';
+      try {
+        const r = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ q: text })
+        });
+        // Garante que sempre tentamos JSON e tratamos erro de HTML:
+        const raw = await r.text();
+        let data;
+        try { data = JSON.parse(raw) } catch { throw new Error(`Resposta não JSON:\n${raw.slice(0,200)}`) }
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.innerHTML = `<span class="err">Erro: ${String(err)}</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
