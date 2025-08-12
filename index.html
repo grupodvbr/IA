@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -106,6 +107,7 @@
       0%,80%,100%{opacity:.25;transform:translateY(0)}
       40%{opacity:1;transform:translateY(-2px)}
     }
+    /* Card de meta */
     .meta-card{
       background:#1e293b;padding:12px;border-radius:12px;margin-top:6px;
       box-shadow:0 2px 8px rgba(0,0,0,.3);
@@ -171,7 +173,6 @@ function render(){
       card.className='meta-card';
       card.innerHTML=`
         <div class="meta-title">${msg.data.Empresa}</div>
-        <div class="meta-item">💬 ${msg.text || ''}</div>
         <div class="meta-item">💰 Previsto: R$ ${msg.data.Previsto.toLocaleString('pt-BR')}</div>
         <div class="meta-item">✅ Realizado: R$ ${msg.data.Realizado.toLocaleString('pt-BR')}</div>
         <div class="meta-item">📊 Atingido: ${(msg.data.Realizado/msg.data.Previsto*100).toFixed(2)}%</div>
@@ -214,7 +215,7 @@ const form=document.getElementById('composer');const btn=document.getElementById
 
 form.addEventListener('submit',async e=>{
   e.preventDefault();
-  const text=ta.value?.trim();
+  const text=ta.value.trim();
   if(!text)return;
   messages.push({role:'user',text,ts:Date.now()});
   saveLocal();render();
@@ -232,18 +233,12 @@ form.addEventListener('submit',async e=>{
       localStorage.setItem('dv_convId',conversationId);
     }
     messages=messages.filter(m=>m.role!=='typing');
-
+    // Detecta se veio JSON de metas
     try{
       const parsed=JSON.parse(data.text);
       if(Array.isArray(parsed)&&parsed[0]?.Empresa){
         parsed.forEach(meta=>{
-          messages.push({
-            role:'assistant',
-            type:'meta',
-            data:meta,
-            ts:Date.now(),
-            text:`Aqui está o desempenho da meta para ${meta.Empresa}: Previsto R$ ${meta.Previsto.toLocaleString('pt-BR')}, Realizado R$ ${meta.Realizado.toLocaleString('pt-BR')}, atingindo ${(meta.Realizado/meta.Previsto*100).toFixed(2)}%.`
-          });
+          messages.push({role:'assistant',type:'meta',data:meta,ts:Date.now()});
         });
       } else {
         messages.push({role:'assistant',text:data.text,ts:Date.now()});
