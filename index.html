@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Agente DV</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -138,13 +138,14 @@
 
 <script>
 const API_URL = 'https://novo-agente.vercel.app/api/agent';
-const storeKey = 'dv_chat_history';
-let messages = loadLocal();
+let conversationId = localStorage.getItem('dv_convId') || null;
+const storeKey = () => `dv_chat_${conversationId || 'temp'}`;
+let messages = [];
 
-function formatTime(ts){return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
-function formatDay(ts){return new Date(ts).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}
-function loadLocal(){try{return JSON.parse(localStorage.getItem(storeKey))||[]}catch{return []}}
-function saveLocal(){localStorage.setItem(storeKey,JSON.stringify(messages.filter(m=>m.role!=='typing')))}
+function formatTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function formatDay(ts){return new Date(ts).toLocaleDateString([],{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}
+function loadLocal(){try{return JSON.parse(localStorage.getItem(storeKey()))||[]}catch{return []}}
+function saveLocal(){localStorage.setItem(storeKey(),JSON.stringify(messages.filter(m=>m.role!=='typing')))}
 
 const listEl=document.getElementById('list');
 function render(){
@@ -170,6 +171,7 @@ function render(){
       card.className='meta-card';
       card.innerHTML=`
         <div class="meta-title">${msg.data.Empresa}</div>
+        <div class="meta-item">💬 ${msg.text || ''}</div>
         <div class="meta-item">💰 Previsto: R$ ${msg.data.Previsto.toLocaleString('pt-BR')}</div>
         <div class="meta-item">✅ Realizado: R$ ${msg.data.Realizado.toLocaleString('pt-BR')}</div>
         <div class="meta-item">📊 Atingido: ${(msg.data.Realizado/msg.data.Previsto*100).toFixed(2)}%</div>
@@ -184,11 +186,7 @@ function render(){
           backgroundColor:['#10b981','#374151']}]
         },options:{plugins:{legend:{display:false}}}});
       },50);
-    } 
-    else if(msg.html){
-      bubble.innerHTML = msg.html;
-    }
-    else if(msg.role==='typing'){
+    } else if(msg.role==='typing'){
       row.classList.add('typing');
       const dots=document.createElement('div');
       dots.className='dots';
@@ -207,7 +205,7 @@ function render(){
   setTimeout(()=>listEl.parentElement.scrollTo({top:listEl.parentElement.scrollHeight,behavior:'smooth'}),10);
 }
 
-render();
+if(conversationId){messages=loadLocal();render();}
 
 const ta=document.getElementById('q');
 ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(150,ta.scrollHeight)+'px';});
@@ -216,7 +214,7 @@ const form=document.getElementById('composer');const btn=document.getElementById
 
 form.addEventListener('submit',async e=>{
   e.preventDefault();
-  const text=ta.value.trim();
+  const text=ta.value?.trim();
   if(!text)return;
   messages.push({role:'user',text,ts:Date.now()});
   saveLocal();render();
@@ -225,30 +223,33 @@ form.addEventListener('submit',async e=>{
   render();
   btn.disabled=true;
   try{
-    const res=await fetch(API_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:text})});
+    const res=await fetch(API_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:text,conversationId})});
     const data=await res.json();
     if(!res.ok||!data.ok)throw new Error(data?.error||'Erro');
+    if(data.conversationId&&data.conversationId!==conversationId){
+      if(!conversationId&&messages.length)localStorage.removeItem(storeKey());
+      conversationId=data.conversationId;
+      localStorage.setItem('dv_convId',conversationId);
+    }
     messages=messages.filter(m=>m.role!=='typing');
 
     try{
       const parsed=JSON.parse(data.text);
       if(Array.isArray(parsed)&&parsed[0]?.Empresa){
         parsed.forEach(meta=>{
-          messages.push({role:'assistant',type:'meta',data:meta,ts:Date.now()});
+          messages.push({
+            role:'assistant',
+            type:'meta',
+            data:meta,
+            ts:Date.now(),
+            text:`Aqui está o desempenho da meta para ${meta.Empresa}: Previsto R$ ${meta.Previsto.toLocaleString('pt-BR')}, Realizado R$ ${meta.Realizado.toLocaleString('pt-BR')}, atingindo ${(meta.Realizado/meta.Previsto*100).toFixed(2)}%.`
+          });
         });
-      } else {
-        if(data.text.trim().startsWith('<')){
-          messages.push({role:'assistant',html:data.text,ts:Date.now()});
-        } else {
-          messages.push({role:'assistant',text:data.text,ts:Date.now()});
-        }
-      }
-    }catch{
-      if(data.text.trim().startsWith('<')){
-        messages.push({role:'assistant',html:data.text,ts:Date.now()});
       } else {
         messages.push({role:'assistant',text:data.text,ts:Date.now()});
       }
+    }catch{
+      messages.push({role:'assistant',text:data.text,ts:Date.now()});
     }
     saveLocal();render();
   }catch(err){
