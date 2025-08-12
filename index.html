@@ -26,34 +26,43 @@
     <pre id="out">Pronto. Envie uma mensagem para testar.</pre>
   </main>
 
-  <script>
-    // 👉 TROQUE A URL PELO ENDEREÇO DA SUA API NA VERCEL:
-    const API_URL = 'https://novo-agente.vercel.app/api/agent';
+<script>
+  const API_URL = 'https://novo-agente.vercel.app/api/agent';
+  const out = document.getElementById('out');
+  const f = document.getElementById('f');
+  const q = document.getElementById('q');
 
-    const f = document.getElementById('f');
-    const q = document.getElementById('q');
-    const out = document.getElementById('out');
+  // reutiliza a mesma conversa
+  let conversationId = localStorage.getItem('convId') || null;
 
-    f.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const text = q.value.trim();
-      if (!text) return;
-      out.textContent = 'Enviando…';
-      try {
-        const r = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ q: text })
-        });
-        // Garante que sempre tentamos JSON e tratamos erro de HTML:
-        const raw = await r.text();
-        let data;
-        try { data = JSON.parse(raw) } catch { throw new Error(`Resposta não JSON:\n${raw.slice(0,200)}`) }
-        out.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        out.innerHTML = `<span class="err">Erro: ${String(err)}</span>`;
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = q.value.trim();
+    if (!text) return;
+    out.textContent = '…';
+
+    try {
+      const r = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ q: text, conversationId })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Erro');
+
+      // guarda id da conversa para as próximas perguntas
+      if (data.conversationId) {
+        conversationId = data.conversationId;
+        localStorage.setItem('convId', conversationId);
       }
-    });
-  </script>
+
+      // MOSTRA APENAS O TEXTO
+      out.textContent = data.text || '(sem resposta)';
+    } catch (err) {
+      out.textContent = 'Erro: ' + String(err.message || err);
+    }
+  });
+</script>
+
 </body>
 </html>
