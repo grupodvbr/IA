@@ -2,326 +2,259 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <!-- 👇 bloqueia zoom (iOS/Android) -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Agente DV</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
-      --bg:#0b1220;        /* fundo app */
-      --panel:#0f172a;     /* cabeçalho/input */
-      --mut:#94a3b8;       /* textos fracos */
-      --txt:#e5e7eb;       /* texto principal */
-      --me:#1f8f4a;        /* bolha do usuário (verde) */
-      --ai:#1f2937;        /* bolha do assistente (cinza) */
-      --accent:#10b981;    /* botões/realces */
-      --dots:#cbd5e1;      /* cor das bolinhas do "digitando" */
+      --bg:#0b1220;
+      --panel:#0f172a;
+      --mut:#94a3b8;
+      --txt:#e5e7eb;
+      --me:#1f8f4a;
+      --ai:#1f2937;
+      --accent:#10b981;
+      --dots:#cbd5e1;
     }
-
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
       margin:0;
       background:var(--bg);
       color:var(--txt);
-      font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
-      display:flex; flex-direction:column;
-      -webkit-text-size-adjust:100%; /* previne zoom por ajuste de fonte no iOS */
-      touch-action: manipulation;     /* reduz double-tap zoom */
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,"Noto Sans","Helvetica Neue",sans-serif;
+      display:flex;flex-direction:column;
+      -webkit-text-size-adjust:100%;
+      touch-action:manipulation;
     }
-
-    /* Cabeçalho */
     header{
       background:var(--panel);
       padding:14px 16px;
-      display:flex; align-items:center; gap:12px;
+      display:flex;align-items:center;gap:12px;
       border-bottom:1px solid #1f2937;
-      position:sticky; top:0; z-index:10;
+      position:sticky;top:0;z-index:50;
     }
     .avatar{
       width:36px;height:36px;border-radius:50%;
       background:linear-gradient(135deg,#10b981,#059669);
-      display:flex;align-items:center;justify-content:center;font-weight:800;color:#001b12;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;color:#001b12;
     }
     header h1{margin:0;font-size:16px}
     header small{display:block;color:var(--mut);font-size:12px;font-weight:500}
-
-    /* Área do chat */
     .chat{
-      flex:1; overflow-y:auto; padding:16px 12px 92px;
+      flex:1;overflow-y:auto;padding:16px 12px 92px;
       background:
         radial-gradient(40px 40px at 10% 10%, rgba(255,255,255,.03), transparent 60%),
         radial-gradient(40px 40px at 80% 20%, rgba(255,255,255,.03), transparent 60%),
         var(--bg);
     }
     .list{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-
     .row{display:flex}
     .row.me{justify-content:flex-end}
     .row.ai{justify-content:flex-start}
-
     .bubble{
       max-width:75%;
-      border-radius:16px; padding:10px 12px;
-      line-height:1.35; font-size:15px; position:relative;
+      border-radius:16px;padding:10px 12px;
+      line-height:1.35;font-size:15px;position:relative;
       box-shadow:0 2px 14px rgba(0,0,0,.2), inset 0 0 0 1px rgba(255,255,255,.05);
-      word-wrap:break-word; white-space:pre-wrap;
+      word-wrap:break-word;white-space:pre-wrap;
     }
-    .me .bubble{background:var(--me); color:#f0fff7; border-top-right-radius:6px}
-    .ai .bubble{background:var(--ai); color:#e5e7eb; border-top-left-radius:6px}
-
-    .time{
-      display:block; margin-top:6px; font-size:11px; color:#cfe9d8;
-      opacity:.85; text-align:right;
-    }
+    .me .bubble{background:var(--me);color:#f0fff7;border-top-right-radius:6px}
+    .ai .bubble{background:var(--ai);color:#e5e7eb;border-top-left-radius:6px}
+    .time{display:block;margin-top:6px;font-size:11px;color:#cfe9d8;opacity:.85;text-align:right}
     .ai .time{color:#9fb0bf}
-
-    /* barra de entrada */
     .composer{
-      position:fixed; left:0; right:0; bottom:0; z-index:20;
+      position:fixed;left:0;right:0;bottom:0;z-index:20;
       background:var(--panel);
       border-top:1px solid #1f2937;
       padding:12px;
     }
     .bar{
-      max-width:860px;margin:0 auto; display:flex; gap:10px; align-items:flex-end;
+      max-width:860px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;
     }
     textarea{
-      flex:1; min-height:44px; max-height:150px; resize:none;
-      border-radius:18px; padding:12px 14px;
-      background:#0b1220; color:var(--txt);
-      border:1px solid #22304a; outline:none;
-      line-height:1.35;
-      font-size:16px;            /* >=16px evita zoom automático ao focar no iOS */
-      touch-action: manipulation; /* melhora UX mobile */
+      flex:1;min-height:44px;max-height:150px;resize:none;
+      border-radius:18px;padding:12px 14px;
+      background:#0b1220;color:var(--txt);
+      border:1px solid #22304a;outline:none;
+      line-height:1.35;font-size:16px;
+      touch-action:manipulation;
     }
     button{
-      background:var(--accent); color:#00261b; font-weight:800;
-      border:0; border-radius:16px; padding:12px 18px; cursor:pointer;
-      transition:filter .15s ease;
-      font-size:16px;            /* evita zoom ao tocar no botão no iOS */
-      touch-action: manipulation;
+      background:var(--accent);color:#00261b;font-weight:800;
+      border:0;border-radius:16px;padding:12px 18px;cursor:pointer;
+      transition:filter .15s ease;font-size:16px;
+      touch-action:manipulation;
     }
     button:hover{filter:brightness(1.08)}
-    button:disabled{opacity:.6; cursor:default}
-
-    /* Separador de data */
+    button:disabled{opacity:.6;cursor:default}
     .day{
-      margin:14px auto 8px; font-size:12px; color:var(--mut);
-      background:#0c1629; border:1px solid #1f2a46; padding:5px 10px;
-      border-radius:12px; width:max-content;
+      margin:14px auto 8px;font-size:12px;color:var(--mut);
+      background:#0c1629;border:1px solid #1f2a46;padding:5px 10px;
+      border-radius:12px;width:max-content;
     }
-
-    /* bolha de erro */
-    .error{ background:#7c2d12 !important; color:#fff !important }
-
-    /* "Digitando..." (três bolinhas) */
-    .typing .bubble{
-      display:flex; align-items:center; gap:8px;
-    }
-    .dots{ display:inline-flex; gap:6px; align-items:center; }
-    .dot{
-      width:7px; height:7px; border-radius:50%;
-      background:var(--dots); opacity:.25;
-      animation: blink 1.2s infinite ease-in-out;
-    }
-    .dot:nth-child(2){ animation-delay:.2s }
-    .dot:nth-child(3){ animation-delay:.4s }
+    .error{background:#7c2d12!important;color:#fff!important}
+    .typing .bubble{display:flex;align-items:center;gap:8px;}
+    .dots{display:inline-flex;gap:6px;align-items:center;}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--dots);opacity:.25;
+      animation:blink 1.2s infinite ease-in-out}
+    .dot:nth-child(2){animation-delay:.2s}
+    .dot:nth-child(3){animation-delay:.4s}
     @keyframes blink{
-      0%, 80%, 100% { opacity:.25; transform:translateY(0) }
-      40% { opacity:1; transform:translateY(-2px) }
+      0%,80%,100%{opacity:.25;transform:translateY(0)}
+      40%{opacity:1;transform:translateY(-2px)}
     }
+    /* Card de meta */
+    .meta-card{
+      background:#1e293b;padding:12px;border-radius:12px;margin-top:6px;
+      box-shadow:0 2px 8px rgba(0,0,0,.3);
+    }
+    .meta-title{font-weight:bold;margin-bottom:8px}
+    .meta-item{margin:4px 0}
+    .meta-item span{display:inline-block;margin-left:6px}
+    .chart-container{width:120px;height:120px;margin:auto}
   </style>
 </head>
 <body>
-  <header>
-    <div class="avatar">DV</div>
-    <div>
-      <h1>Agente DV</h1>
-      <small>Assistente conectado à OpenAI</small>
-    </div>
-  </header>
+<header>
+  <div class="avatar">DV</div>
+  <div>
+    <h1>Agente DV</h1>
+    <small>Assistente conectado à OpenAI</small>
+  </div>
+</header>
 
-  <main class="chat">
-    <div id="list" class="list"></div>
-  </main>
+<main class="chat">
+  <div id="list" class="list"></div>
+</main>
 
-  <form class="composer" id="composer">
-    <div class="bar">
-      <textarea id="q" placeholder="Escreva sua mensagem..." autocomplete="off"></textarea>
-      <button id="send" type="submit">Enviar</button>
-    </div>
-  </form>
+<form class="composer" id="composer">
+  <div class="bar">
+    <textarea id="q" placeholder="Escreva sua mensagem..." autocomplete="off"></textarea>
+    <button id="send" type="submit">Enviar</button>
+  </div>
+</form>
 
-  <script>
-    // 🔧 TROQUE PELA SUA URL NA VERCEL:
-    const API_URL = 'https://novo-agente.vercel.app/api/agent';
+<script>
+const API_URL = 'https://novo-agente.vercel.app/api/agent';
+let conversationId = localStorage.getItem('dv_convId') || null;
+const storeKey = () => `dv_chat_${conversationId || 'temp'}`;
+let messages = [];
 
-    // Estado local
-    let conversationId = localStorage.getItem('dv_convId') || null;
-    const storeKey = () => `dv_chat_${conversationId || 'temp'}`;
+function formatTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function formatDay(ts){return new Date(ts).toLocaleDateString([],{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}
+function loadLocal(){try{return JSON.parse(localStorage.getItem(storeKey()))||[]}catch{return []}}
+function saveLocal(){localStorage.setItem(storeKey(),JSON.stringify(messages.filter(m=>m.role!=='typing')))}
 
-    // Estrutura: { role:'user'|'assistant'|'error'|'typing', text, ts }
-    let messages = [];
-
-    // Utilidades de data/hora
-    function formatTime(ts){
-      const d = new Date(ts);
-      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+const listEl=document.getElementById('list');
+function render(){
+  listEl.innerHTML='';
+  let lastDay='';
+  messages.forEach(msg=>{
+    const day=formatDay(msg.ts);
+    if(day!==lastDay){
+      const sep=document.createElement('div');
+      sep.className='day';
+      sep.textContent=day;
+      listEl.appendChild(sep);
+      lastDay=day;
     }
-    function formatDay(ts){
-      const d = new Date(ts);
-      return d.toLocaleDateString([], {weekday:'short', day:'2-digit', month:'2-digit', year:'numeric'});
+    const row=document.createElement('div');
+    row.className=`row ${msg.role==='user'?'me':'ai'}`;
+    const bubble=document.createElement('div');
+    bubble.className='bubble';
+    if(msg.role==='error')bubble.classList.add('error');
+
+    if(msg.type==='meta'){
+      const card=document.createElement('div');
+      card.className='meta-card';
+      card.innerHTML=`
+        <div class="meta-title">${msg.data.Empresa}</div>
+        <div class="meta-item">💰 Previsto: R$ ${msg.data.Previsto.toLocaleString('pt-BR')}</div>
+        <div class="meta-item">✅ Realizado: R$ ${msg.data.Realizado.toLocaleString('pt-BR')}</div>
+        <div class="meta-item">📊 Atingido: ${(msg.data.Realizado/msg.data.Previsto*100).toFixed(2)}%</div>
+        <div class="chart-container"><canvas></canvas></div>
+      `;
+      bubble.appendChild(card);
+      setTimeout(()=>{
+        const ctx=card.querySelector('canvas').getContext('2d');
+        new Chart(ctx,{type:'doughnut',data:{
+          labels:['Realizado','Restante'],
+          datasets:[{data:[msg.data.Realizado,Math.max(0,msg.data.Previsto-msg.data.Realizado)],
+          backgroundColor:['#10b981','#374151']}]
+        },options:{plugins:{legend:{display:false}}}});
+      },50);
+    } else if(msg.role==='typing'){
+      row.classList.add('typing');
+      const dots=document.createElement('div');
+      dots.className='dots';
+      dots.innerHTML='<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      bubble.appendChild(dots);
+    } else {
+      bubble.textContent=msg.text;
     }
+    const time=document.createElement('span');
+    time.className='time';
+    time.textContent=formatTime(msg.ts);
+    bubble.appendChild(time);
+    row.appendChild(bubble);
+    listEl.appendChild(row);
+  });
+  setTimeout(()=>listEl.parentElement.scrollTo({top:listEl.parentElement.scrollHeight,behavior:'smooth'}),10);
+}
 
-    // Persistência local (ignora mensagens 'typing')
-    function loadLocal(){
-      const raw = localStorage.getItem(storeKey());
-      if(!raw) return [];
-      try { return JSON.parse(raw) || [] } catch { return [] }
+if(conversationId){messages=loadLocal();render();}
+
+const ta=document.getElementById('q');
+ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(150,ta.scrollHeight)+'px';});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+const form=document.getElementById('composer');const btn=document.getElementById('send');
+
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const text=ta.value.trim();
+  if(!text)return;
+  messages.push({role:'user',text,ts:Date.now()});
+  saveLocal();render();
+  ta.value='';ta.style.height='auto';
+  messages.push({role:'typing',text:'',ts:Date.now(),_temp:true});
+  render();
+  btn.disabled=true;
+  try{
+    const res=await fetch(API_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:text,conversationId})});
+    const data=await res.json();
+    if(!res.ok||!data.ok)throw new Error(data?.error||'Erro');
+    if(data.conversationId&&data.conversationId!==conversationId){
+      if(!conversationId&&messages.length)localStorage.removeItem(storeKey());
+      conversationId=data.conversationId;
+      localStorage.setItem('dv_convId',conversationId);
     }
-    function saveLocal(){
-      const clean = messages.filter(m => m.role !== 'typing');
-      localStorage.setItem(storeKey(), JSON.stringify(clean));
-    }
-
-    // Renderização
-    const listEl = document.getElementById('list');
-    function render(){
-      listEl.innerHTML = '';
-      let lastDay = '';
-      messages.forEach(msg=>{
-        const day = formatDay(msg.ts);
-        if(day !== lastDay){
-          const sep = document.createElement('div');
-          sep.className = 'day';
-          sep.textContent = day;
-          listEl.appendChild(sep);
-          lastDay = day;
-        }
-
-        const row = document.createElement('div');
-        row.className = `row ${msg.role === 'user' ? 'me' : 'ai'}`;
-
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble';
-        if(msg.role === 'error') bubble.classList.add('error');
-
-        if(msg.role === 'typing'){
-          row.classList.add('typing');
-          // três bolinhas animadas
-          const dots = document.createElement('div');
-          dots.className = 'dots';
-          dots.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-          bubble.appendChild(dots);
-        } else {
-          bubble.textContent = msg.text;
-        }
-
-        const time = document.createElement('span');
-        time.className = 'time';
-        time.textContent = formatTime(msg.ts);
-
-        bubble.appendChild(time);
-        row.appendChild(bubble);
-        listEl.appendChild(row);
-      });
-      // auto scroll
-      setTimeout(()=>listEl.parentElement.scrollTo({ top:listEl.parentElement.scrollHeight, behavior:'smooth'}), 10);
-    }
-
-    // Inicialização
-    if(conversationId){
-      messages = loadLocal();
-      render();
-    }else{
-      messages = [];
-      render();
-    }
-
-    // Auto-ajuste do textarea
-    const ta = document.getElementById('q');
-    function autoGrow(){
-      ta.style.height = 'auto';
-      ta.style.height = Math.min(150, ta.scrollHeight) + 'px';
-    }
-    ta.addEventListener('input', autoGrow);
-
-    // Previne zoom por gesto (extra; alguns navegadores podem ignorar)
-    document.addEventListener('gesturestart', e => e.preventDefault());
-
-    // Envio
-    const form = document.getElementById('composer');
-    const btn = document.getElementById('send');
-
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const text = ta.value.trim();
-      if(!text) return;
-
-      // mensagem do usuário
-      const userMsg = { role:'user', text, ts: Date.now() };
-      messages.push(userMsg);
-      saveLocal(); render();
-      ta.value=''; autoGrow();
-
-      // mostra "digitando…"
-      const typingMsg = { role:'typing', text:'', ts: Date.now(), _temp:true };
-      messages.push(typingMsg);
-      render();
-
-      // chama API
-      btn.disabled = true;
-      try{
-        const res = await fetch(API_URL, {
-          method:'POST',
-          headers:{ 'content-type':'application/json' },
-          body: JSON.stringify({ q: text, conversationId })
+    messages=messages.filter(m=>m.role!=='typing');
+    // Detecta se veio JSON de metas
+    try{
+      const parsed=JSON.parse(data.text);
+      if(Array.isArray(parsed)&&parsed[0]?.Empresa){
+        parsed.forEach(meta=>{
+          messages.push({role:'assistant',type:'meta',data:meta,ts:Date.now()});
         });
-        const raw = await res.text();
-        let data;
-        try { data = JSON.parse(raw) } catch(e){
-          throw new Error('Resposta não JSON da API: ' + raw.slice(0,200));
-        }
-
-        if(!res.ok || !data.ok){
-          throw new Error(data?.error || ('Erro HTTP ' + res.status));
-        }
-
-        // atualiza/sincroniza conversationId
-        if(data.conversationId && data.conversationId !== conversationId){
-          if(!conversationId && messages.length){
-            localStorage.removeItem(storeKey());
-          }
-          conversationId = data.conversationId;
-          localStorage.setItem('dv_convId', conversationId);
-        }
-
-        // remove "digitando..."
-        const idx = messages.findIndex(m => m.role === 'typing');
-        if(idx >= 0) messages.splice(idx,1);
-
-        // resposta do assistente
-        const aiMsg = { role:'assistant', text: data.text || '', ts: Date.now() };
-        messages.push(aiMsg);
-        saveLocal(); render();
-      }catch(err){
-        const idx = messages.findIndex(m => m.role === 'typing');
-        if(idx >= 0) messages.splice(idx,1);
-        const errMsg = { role:'error', text: 'Erro: ' + String(err.message || err), ts: Date.now() };
-        messages.push(errMsg);
-        saveLocal(); render();
-      }finally{
-        btn.disabled = false;
+      } else {
+        messages.push({role:'assistant',text:data.text,ts:Date.now()});
       }
-    });
-
-    // Enviar com Ctrl/Cmd+Enter
-    ta.addEventListener('keydown', (e)=>{
-      if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
-        form.requestSubmit();
-      }
-    });
-  </script>
+    }catch{
+      messages.push({role:'assistant',text:data.text,ts:Date.now()});
+    }
+    saveLocal();render();
+  }catch(err){
+    messages=messages.filter(m=>m.role!=='typing');
+    messages.push({role:'error',text:'Erro: '+String(err.message||err),ts:Date.now()});
+    saveLocal();render();
+  }finally{
+    btn.disabled=false;
+  }
+});
+ta.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){form.requestSubmit();}});
+</script>
 </body>
 </html>
