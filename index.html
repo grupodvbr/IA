@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Agente DV</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -106,7 +106,6 @@
       0%,80%,100%{opacity:.25;transform:translateY(0)}
       40%{opacity:1;transform:translateY(-2px)}
     }
-    /* Card de meta */
     .meta-card{
       background:#1e293b;padding:12px;border-radius:12px;margin-top:6px;
       box-shadow:0 2px 8px rgba(0,0,0,.3);
@@ -139,14 +138,13 @@
 
 <script>
 const API_URL = 'https://novo-agente.vercel.app/api/agent';
-let conversationId = localStorage.getItem('dv_convId') || null;
-const storeKey = () => `dv_chat_${conversationId || 'temp'}`;
-let messages = [];
+const storeKey = 'dv_chat_history';
+let messages = loadLocal();
 
-function formatTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
-function formatDay(ts){return new Date(ts).toLocaleDateString([],{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}
-function loadLocal(){try{return JSON.parse(localStorage.getItem(storeKey()))||[]}catch{return []}}
-function saveLocal(){localStorage.setItem(storeKey(),JSON.stringify(messages.filter(m=>m.role!=='typing')))}
+function formatTime(ts){return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function formatDay(ts){return new Date(ts).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}
+function loadLocal(){try{return JSON.parse(localStorage.getItem(storeKey))||[]}catch{return []}}
+function saveLocal(){localStorage.setItem(storeKey,JSON.stringify(messages.filter(m=>m.role!=='typing')))}
 
 const listEl=document.getElementById('list');
 function render(){
@@ -186,7 +184,11 @@ function render(){
           backgroundColor:['#10b981','#374151']}]
         },options:{plugins:{legend:{display:false}}}});
       },50);
-    } else if(msg.role==='typing'){
+    } 
+    else if(msg.html){
+      bubble.innerHTML = msg.html;
+    }
+    else if(msg.role==='typing'){
       row.classList.add('typing');
       const dots=document.createElement('div');
       dots.className='dots';
@@ -205,7 +207,7 @@ function render(){
   setTimeout(()=>listEl.parentElement.scrollTo({top:listEl.parentElement.scrollHeight,behavior:'smooth'}),10);
 }
 
-if(conversationId){messages=loadLocal();render();}
+render();
 
 const ta=document.getElementById('q');
 ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(150,ta.scrollHeight)+'px';});
@@ -223,16 +225,11 @@ form.addEventListener('submit',async e=>{
   render();
   btn.disabled=true;
   try{
-    const res=await fetch(API_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:text,conversationId})});
+    const res=await fetch(API_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:text})});
     const data=await res.json();
     if(!res.ok||!data.ok)throw new Error(data?.error||'Erro');
-    if(data.conversationId&&data.conversationId!==conversationId){
-      if(!conversationId&&messages.length)localStorage.removeItem(storeKey());
-      conversationId=data.conversationId;
-      localStorage.setItem('dv_convId',conversationId);
-    }
     messages=messages.filter(m=>m.role!=='typing');
-    // Detecta se veio JSON de metas
+
     try{
       const parsed=JSON.parse(data.text);
       if(Array.isArray(parsed)&&parsed[0]?.Empresa){
@@ -240,10 +237,18 @@ form.addEventListener('submit',async e=>{
           messages.push({role:'assistant',type:'meta',data:meta,ts:Date.now()});
         });
       } else {
-        messages.push({role:'assistant',text:data.text,ts:Date.now()});
+        if(data.text.trim().startsWith('<')){
+          messages.push({role:'assistant',html:data.text,ts:Date.now()});
+        } else {
+          messages.push({role:'assistant',text:data.text,ts:Date.now()});
+        }
       }
     }catch{
-      messages.push({role:'assistant',text:data.text,ts:Date.now()});
+      if(data.text.trim().startsWith('<')){
+        messages.push({role:'assistant',html:data.text,ts:Date.now()});
+      } else {
+        messages.push({role:'assistant',text:data.text,ts:Date.now()});
+      }
     }
     saveLocal();render();
   }catch(err){
